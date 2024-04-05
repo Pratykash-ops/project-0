@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model institution {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  institutionNm String @unique
+  code          Int    @unique
+  img           String
+  user          user[]
+}
+
+type authMethods {
+  addmissionNumber String?
+  studentId        String?
+  uuid             String?
+}
+
+type studentDetail {
+  class    Int?
+  realname String?
+  section  String?
+  course   String?
+  other    Json?
+}
+
+model user {
+  id                   String        @id @default(auto()) @map("_id") @db.ObjectId
+  name                 String
+  email                String?       @unique
+  password             String?
+  academicDetails      studentDetail @unique
+  authenticationMethod authMethods
+  institution          institution   @relation(fields: [instId], references: [id])
+  instId               String        @db.ObjectId
+  posts                project[]     @relation("hiredBy")
+  partner              partner?
+  messages             messages[]
+}
+
+model category {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  projects   project[] @relation(fields: [projectIds], references: [id])
+  projectIds String[]  @db.ObjectId
+}
+
+model partner {
+  id       String    @id @default(auto()) @map("_id") @db.ObjectId
+  user     user      @relation(fields: [uid], references: [id])
+  uid      String    @unique @db.ObjectId
+  projects project[] @relation("worker")
+  bids     bid[]
+}
+
+model bid {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  project   project @relation(fields: [projectId], references: [id])
+  projectId String  @db.ObjectId
+  bidder    partner @relation(fields: [bidderId], references: [id])
+  bidderId  String  @db.ObjectId
+  price     Int?
+}
+
+enum jobStatus {
+  assigned
+  cancelled
+  pitched
+  delivered
+  paymentPending
+  working
+}
+
+model project {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  user          user       @relation(fields: [userId], references: [id], name: "hiredBy")
+  userId        String     @db.ObjectId
+  bids          bid[]
+  title         String
+  description   String
+  messages      messages[]
+  status        jobStatus  @default(pitched)
+  assigned      partner?   @relation(fields: [assignedId], references: [id], name: "worker")
+  assignedId    String?    @db.ObjectId
+  categories    category[] @relation(fields: [categoriesIds], references: [id])
+  categoriesIds String[]   @db.ObjectId
+  isPrivate     Boolean    @default(false)
+  budget        Int
+  deal          Int?
+  rating        Int?
+  ctx           Json?
+  createdAt     DateTime   @default(now())
+}
+
+model messages {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  project   project @relation(fields: [projectId], references: [id])
+  projectId String  @db.ObjectId
+  user      user    @relation(fields: [userId], references: [id])
+  userId    String  @db.ObjectId
+  file      file?
+}
+
+enum fileType {
+  PDF
+  IMAGE
+  LINK
+}
+
+model file {
+  id      String   @id @default(auto()) @map("_id") @db.ObjectId
+  message messages @relation(fields: [msgId], references: [id])
+  msgId   String   @unique @db.ObjectId
+  name    String?
+  url     String
+  type    fileType
+}
